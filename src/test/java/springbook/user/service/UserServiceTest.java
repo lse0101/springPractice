@@ -4,14 +4,17 @@ import org.junit.*;
 import org.junit.runner.*;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationContext;
+import org.springframework.dao.TransientDataAccessResourceException;
 import org.springframework.mail.MailException;
 import org.springframework.mail.MailSender;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.DefaultTransactionDefinition;
 import springbook.user.dao.MockUserDao;
 import springbook.user.dao.UserDao;
 import springbook.user.domain.Level;
@@ -36,11 +39,9 @@ import static springbook.user.service.UserServiceImpl.MIN_RECOMMEND_FOR_GODL;
 public class UserServiceTest {
 
    @Autowired
-   @Qualifier("userService")
    UserService userService;
 
    @Autowired
-   @Qualifier("testUserService")
    UserService testUserService;
 
    @Autowired
@@ -52,19 +53,11 @@ public class UserServiceTest {
    List<User> users;
 
    @Autowired
-   UserServiceImpl userServiceImpl;
+   PlatformTransactionManager transactionManager;
 
    @Autowired
-    PlatformTransactionManager transactionManager;
+   ApplicationContext context;
 
-   @Autowired
-    ApplicationContext context;
-
-
-//    @Test
-//    public void bean() throws Exception {
-//        assertThat(this.userService, is(notNullValue()));
-//    }
 
     @Before
     public void setUp() throws Exception {
@@ -113,7 +106,15 @@ public class UserServiceTest {
         }
     }
 
-/*    @Test
+    @Test
+    @Transactional
+    public void transactionSync() throws Exception {
+        userService.deleteAll();
+        userService.add(users.get(0));
+        userService.add(users.get(1));
+    }
+
+    @Test
     public void upgradeAllOrNothing() throws Exception {
         userDao.deleteAll();
         for(User user : users) userDao.add(user);
@@ -125,7 +126,7 @@ public class UserServiceTest {
         }
 
         checkLevelUpgraded(users.get(1), false);
-    }*/
+    }
 
     @Test
     public void add() throws Exception {
@@ -143,8 +144,11 @@ public class UserServiceTest {
 
         assertThat(userWithLevelRead.getLevel(), is(userWithLevel.getLevel()));
         assertThat(userWithoutLevelRead.getLevel(), is(Level.BASIC));
+    }
 
-
+    @Test(expected = TransientDataAccessResourceException.class)
+    public void readOnlyTransactionAttribute() throws Exception {
+        testUserService.getAll();
     }
 
     private void checkLevel(User user, Level expectedLevel) {
@@ -179,13 +183,21 @@ public class UserServiceTest {
 
     }
 
-    static class TestUserServiceImpl extends UserServiceImpl {
+    static class TestUserService extends UserServiceImpl {
         private String id = "madnite1";
 
         @Override
         protected void upgradeLevel(User user) {
             if(user.getId().equals(this.id)) throw new TestUserServiceException();
             super.upgradeLevel(user);
+        }
+
+        @Override
+        public List<User> getAll() {
+            for (User user : super.getAll()) {
+                super.update(user);
+            }
+            return null;
         }
     }
 

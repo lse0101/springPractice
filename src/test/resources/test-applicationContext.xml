@@ -1,8 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <beans xmlns="http://www.springframework.org/schema/beans"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:aop="http://www.springframework.org/schema/aop"
+   xmlns:tx="http://www.springframework.org/schema/tx"
 	xsi:schemaLocation="http://www.springframework.org/schema/beans 
-						http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+						http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+						http://www.springframework.org/schema/aop
+						http://www.springframework.org/schema/aop/spring-aop-3.1.xsd
+						http://www.springframework.org/schema/tx
+						http://www.springframework.org/schema/tx/spring-tx-3.1.xsd">
+
 	<bean id="dataSource" class="org.springframework.jdbc.datasource.SimpleDriverDataSource">
 		<property name="driverClass" value="com.mysql.jdbc.Driver" />
 		<property name="url" value="jdbc:mysql://localhost:3307/springbook?characterEncoding=UTF-8" />
@@ -10,38 +17,53 @@
 		<property name="password" value="cmh8207" />
 	</bean>
 
-
 	<bean id="userService" class="springbook.user.service.UserServiceImpl">
 		<property name="userDao" ref="userDao"/>
 		<property name="mailSender" ref="mailSender"/>
 		<qualifier value="userService"/>
 	</bean>
 
-	<bean id="testUserService" class="springbook.user.service.UserServiceTest$TestUserServiceImpl" parent="userService">
+	<bean id="testUserService" class="springbook.user.service.UserServiceTest$TestUserService" parent="userService">
 		<qualifier value="testUserService"/>
 	</bean>
 
-	<bean id="transactionAdvice" class="springbook.user.service.TransactionAdvice">
-		<property name="transactionManager" ref="transactionManager"/>
-	</bean>
-
-	<bean id="transactionPointcut" class="springbook.user.proxy.NameMatchClassMethodPointcut">
-		<property name="mappedName" value="upgrade*"/>
-		<property name="mappedClassName" value="upgrade*"/>
-	</bean>
-	<bean id="transactionAdvisor" class="org.springframework.aop.support.DefaultPointcutAdvisor">
-		<property name="pointcut" ref="transactionPointcut"/>
-		<property name="advice" ref="transactionAdvice"/>
-	</bean>
-
-	<bean id="mailSender" class="springbook.user.service.DummyMailSender"/>
+	<!--<bean id="transactionAdvice" class="springbook.user.service.TransactionAdvice">-->
+		<!--<property name="transactionManager" ref="transactionManager"/>-->
+	<!--</bean>-->
+	<!--<bean id="transactionAdvice" class="org.springframework.transaction.interceptor.TransactionInterceptor">-->
+		<!--<property name="transactionManager" ref="transactionManager"/>-->
+		<!--<property name="transactionAttributes">-->
+			<!--<props>-->
+				<!--<prop key="get*">PROPAGATION_REQUIRED,readOnly, timeout_30</prop>-->
+				<!--<prop key="upgrade*">PROPAGATION_REQUIRED, ISOLATION_SERIALIZABLE</prop>-->
+				<!--<prop key="*">PROPAGATION_REQUIRED</prop>-->
+			<!--</props>-->
+		<!--</property>-->
+	<!--</bean>-->
 
 	<bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
 		<property name="dataSource" ref="dataSource"/>
 	</bean>
+
+	<!--<tx:advice id="transactionAdvice" transaction-manager="transactionManager">-->
+		<!--<tx:attributes>-->
+			<!--<tx:method name="get*" propagation="REQUIRED" read-only="true" timeout="30"/>-->
+			<!--&lt;!&ndash;<tx:method name="upgrade*" propagation="REQUIRES_NEW" isolation="SERIALIZABLE"/>&ndash;&gt;-->
+			<!--<tx:method name="*" propagation="REQUIRED"/>-->
+		<!--</tx:attributes>-->
+	<!--</tx:advice>-->
+
+	<bean id="mailSender" class="springbook.user.service.DummyMailSender"/>
+
 	<bean id="userDao" class="springbook.user.dao.UserDaoJdbc">
 		<property name="dataSource" ref="dataSource" />
 	</bean>
-	<bean class="org.springframework.aop.framework.autoproxy.DefaultAdvisorAutoProxyCreator">
-	</bean>
+
+	<!--<aop:config>-->
+		<!--&lt;!&ndash;<aop:advisor advice-ref="transactionAdvice" pointcut="execution(* *..*ServiceImpl.upgrade*(..))"/>&ndash;&gt;-->
+		<!--<aop:advisor advice-ref="transactionAdvice" pointcut="bean(*Service)"/>-->
+	<!--</aop:config>-->
+
+	<tx:annotation-driven/>
+
 </beans>
